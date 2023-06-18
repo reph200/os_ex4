@@ -2,13 +2,21 @@
 
 #include "MemoryConstants.h"
 #include "VirtualMemory.h"
+#include "PhysicalMemory.h"
 
+void clear (uint64_t frame_index)
+{
+  for (uint64_t i = 0; i < PAGE_SIZE; i++)
+  {
+    PMwrite (frame_index * PAGE_SIZE + i, 0);
+  }
+}
 /*
  * Initialize the virtual memory.
  */
-void VMinitialize()
+void VMinitialize ()
 {
-  
+  clear (0);
 }
 
 /* Reads a word from the given virtual address
@@ -18,7 +26,10 @@ void VMinitialize()
  * returns 0 on failure (if the address cannot be mapped to a physical
  * address for any reason)
  */
-int VMread(uint64_t virtualAddress, word_t* value);
+int VMread (uint64_t virtualAddress, word_t *value)
+{
+
+}
 
 /* Writes a word to the given virtual address.
  *
@@ -26,4 +37,7 @@ int VMread(uint64_t virtualAddress, word_t* value);
  * returns 0 on failure (if the address cannot be mapped to a physical
  * address for any reason)
  */
-int VMwrite(uint64_t virtualAddress, word_t value);
+int VMwrite (uint64_t virtualAddress, word_t value)
+{
+
+}
