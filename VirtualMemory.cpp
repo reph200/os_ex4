@@ -9,9 +9,8 @@
 //BlackBox
 uint64_t get_offset (uint64_t virtualAddress, uint64_t level)
 {
-  uint64_t shift =
-      (VIRTUAL_ADDRESS_WIDTH - OFFSET_WIDTH) - (level * bitWidth (NUM_FRAMES));
-  return (virtualAddress >> shift) & (NUM_FRAMES - 1);
+  uint64_t shift = (VIRTUAL_ADDRESS_WIDTH - ((level + 1) * OFFSET_WIDTH));
+  return (virtualAddress >> shift) & ((1 << OFFSET_WIDTH) - 1);
 }
 
 word_t get_address (uint64_t virtualAddress)
