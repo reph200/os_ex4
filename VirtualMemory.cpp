@@ -28,7 +28,13 @@ void VMinitialize ()
  */
 int VMread (uint64_t virtualAddress, word_t *value)
 {
-
+  uint64_t index = find (virtualAddress);
+  if (index == -1)
+  {
+    return 0;
+  }
+  PMread (index, value);
+  return 1;
 }
 
 /* Writes a word to the given virtual address.
@@ -39,5 +45,11 @@ int VMread (uint64_t virtualAddress, word_t *value)
  */
 int VMwrite (uint64_t virtualAddress, word_t value)
 {
-
+  uint64_t index = find (virtualAddress);
+  if (index == -1)
+  {
+    return 0;
+  }
+  PMwrite (index, value);
+  return 1;
 }
