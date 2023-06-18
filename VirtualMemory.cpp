@@ -8,13 +8,20 @@
 
 #define ROOT_TABLE_FRAME 0
 
+//BlackBox
 uint64_t get_offset (uint64_t virtualAddress, uint64_t level)
 {
   uint64_t shift = (VIRTUAL_ADDRESS_WIDTH - ((level + 1) * OFFSET_WIDTH));
   return (virtualAddress >> shift) & ((1 << OFFSET_WIDTH) - 1);
 }
 
-
+void clear (uint64_t frameIndex)
+{
+  for (uint64_t i = 0; i < PAGE_SIZE; i++)
+  {
+    PMwrite (frameIndex * PAGE_SIZE + i, 0);
+  }
+}
 
 /*
  * min{NUM_PAGES - |page_swapped_in - p|, |page_swapped_in - p|}
@@ -28,32 +35,44 @@ uint64_t cyclicDistance(uint64_t page_swapped_in, uint64_t p) {
 word_t get_address (uint64_t virtualAddress)
 {
   uint64_t offset = 0;
-  uint64_t frame = 0;
+  uint64_t page_index = 0;
   for (uint64_t i = 0; i < TABLES_DEPTH; i++)
   {
     word_t value;
     offset = get_offset (virtualAddress, i);
-    PMread (frame * PAGE_SIZE + offset, &value);
+    PMread (page_index * PAGE_SIZE + offset, &value);
     if (value == 0)
     {
+      // Find an unused frame or evict a page
+      uint64_t frameIndex;
+      for (frameIndex = 1; frameIndex <= NUM_FRAMES; frameIndex++)
+      {
+        word_t frameData;
+        PMread(frameIndex * PAGE_SIZE, &frameData);
+        if (frameData == 0) {
+          break;
+        }
+      }
 
+      // Clear the frame if next layer is a table
+      if (i < TABLES_DEPTH - 1) {
+        clear(frameIndex);
+      }
+
+      // Update the parent table with the new frame index
+      PMwrite((page_index * PAGE_SIZE) + offset, frameIndex);
+      page_index = frameIndex;
     }
     else
     {
-      frame = value;
+      page_index = value;
     }
 
   }
-  return frame * PAGE_SIZE + offset;
+  return page_index * PAGE_SIZE + offset;
 }
 
-void clear (uint64_t frameIndex)
-{
-  for (uint64_t i = 0; i < PAGE_SIZE; i++)
-  {
-    PMwrite (frameIndex * PAGE_SIZE + i, 0);
-  }
-}
+
 
 /*
  * Initialize the virtual memory.
