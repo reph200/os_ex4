@@ -6,38 +6,41 @@
 
 #define ROOT_TABLE_FRAME 0
 
-uint64_t get_offset(uint64_t virtualAddress, uint64_t level)
+//BlackBox
+uint64_t get_offset (uint64_t virtualAddress, uint64_t level)
 {
-  uint64_t shift = (VIRTUAL_ADDRESS_WIDTH - OFFSET_WIDTH) - (level * bitWidth(NUM_FRAMES));
+  uint64_t shift =
+      (VIRTUAL_ADDRESS_WIDTH - OFFSET_WIDTH) - (level * bitWidth (NUM_FRAMES));
   return (virtualAddress >> shift) & (NUM_FRAMES - 1);
 }
 
-int get_address(uint64_t virtualAddress)
+word_t get_address (uint64_t virtualAddress)
 {
-  uint64_t page = virtualAddress;
+  uint64_t offset = 0;
   uint64_t frame = 0;
   for (uint64_t i = 0; i < TABLES_DEPTH; i++)
   {
     word_t value;
-    PMread (frame * PAGE_SIZE + get_offset(virtualAddress,i), &value);
-      if (value == 0)
-      {
+    offset = get_offset (virtualAddress, i);
+    PMread (frame * PAGE_SIZE + offset, &value);
+    if (value == 0)
+    {
 
-      }
-      else
-      {
-        frame = value;
-      }
+    }
+    else
+    {
+      frame = value;
+    }
 
   }
-  return frame * PAGE_SIZE + table;
+  return frame * PAGE_SIZE + offset;
 }
 
-void clear (uint64_t frame_index)
+void clear (uint64_t frameIndex)
 {
   for (uint64_t i = 0; i < PAGE_SIZE; i++)
   {
-    PMwrite (frame_index * PAGE_SIZE + i, 0);
+    PMwrite (frameIndex * PAGE_SIZE + i, 0);
   }
 }
 
@@ -58,7 +61,7 @@ void VMinitialize ()
  */
 int VMread (uint64_t virtualAddress, word_t *value)
 {
-  uint64_t address =  get_address(virtualAddress);
+  uint64_t address = get_address (virtualAddress);
   if (address == 0)
   {
     return 0;
