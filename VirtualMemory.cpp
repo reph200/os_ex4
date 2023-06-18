@@ -3,14 +3,26 @@
 #include "MemoryConstants.h"
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
+#include <cstdint>
+#include <algorithm>
 
 #define ROOT_TABLE_FRAME 0
 
-//BlackBox
 uint64_t get_offset (uint64_t virtualAddress, uint64_t level)
 {
   uint64_t shift = (VIRTUAL_ADDRESS_WIDTH - ((level + 1) * OFFSET_WIDTH));
   return (virtualAddress >> shift) & ((1 << OFFSET_WIDTH) - 1);
+}
+
+
+
+/*
+ * min{NUM_PAGES - |page_swapped_in - p|, |page_swapped_in - p|}
+ */
+uint64_t cyclicDistance(uint64_t page_swapped_in, uint64_t p) {
+  uint64_t distance1 = NUM_PAGES - std::abs(static_cast<int64_t>(page_swapped_in - p));
+  uint64_t distance2 = std::abs(static_cast<int64_t>(page_swapped_in - p));
+  return std::min(distance1, distance2);
 }
 
 word_t get_address (uint64_t virtualAddress)
