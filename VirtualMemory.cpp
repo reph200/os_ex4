@@ -6,9 +6,9 @@
 #include <cstdint>
 #include <algorithm>
 
-#define ROOT_TABLE_FRAME 0
+#define ROOT_TABLE_PAGE 0
 
-//BlackBox
+
 uint64_t get_offset (uint64_t virtualAddress, uint64_t level)
 {
   uint64_t shift = (VIRTUAL_ADDRESS_WIDTH - ((level + 1) * OFFSET_WIDTH));
@@ -22,7 +22,19 @@ void clear (uint64_t frameIndex)
     PMwrite (frameIndex * PAGE_SIZE + i, 0);
   }
 }
-
+bool is_empty_frame(uint64_t frameIndex)
+{
+  word_t value;
+  for (uint64_t i = 0; i < PAGE_SIZE; i++)
+  {
+    PMread (frameIndex * PAGE_SIZE + i, &value);
+    if (value!=0)
+    {
+      return false;
+    }
+  }
+  return true;
+}
 /*
  * min{NUM_PAGES - |page_swapped_in - p|, |page_swapped_in - p|}
  */
@@ -74,12 +86,13 @@ word_t get_address (uint64_t virtualAddress)
 
 
 
+
 /*
  * Initialize the virtual memory.
  */
 void VMinitialize ()
 {
-  clear (ROOT_TABLE_FRAME);
+  clear (ROOT_TABLE_PAGE);
 }
 
 /* Reads a word from the given virtual address
