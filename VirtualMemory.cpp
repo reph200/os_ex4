@@ -101,9 +101,6 @@ word_t get_unused_or_empty_frame (word_t root,word_t justCreatedFrame,
   }
   return ret_val;
 }
-  ...
-
-  ...
 
 
   if (frameIndex == NUM_FRAMES - 1)
@@ -117,36 +114,71 @@ word_t get_unused_or_empty_frame (word_t root,word_t justCreatedFrame,
 }
 
 // get_page_of_max_dist
-word_t get_page_of_max_dist (uint64_t page_swapped)
+uint64_t get_page_of_max_dist (uint64_t page_swapped_in)
 {
-  word_t maxPage = 0;
-  word_t maxDist = 0;
-  for (word_t i = 0; i < NUM_PAGES; i++)
+  uint64_t addr[TABLES_DEPTH];
+  uint64_t maxPage = 0;
+  uint64_t maxDist = 0;
+
+  for (uint64_t i = 0; i < NUM_PAGES; i++)
   {
-    word_t dist = cyclicDistance (virtualAddress, i);
-    if (dist > maxDist)
+    uint64_t j = TABLES_DEPTH - 1;
+    uint64_t left_address = i;
+
+    for (; j <= 0; j--)
     {
-      maxDist = dist;
-      maxPage = i;
+      addr[j] = left_address & ((1 << OFFSET_WIDTH) - 1);
+      left_address = left_address >> OFFSET_WIDTH;
     }
+    word_t nextIndex = ROOT_TABLE_PAGE;
+    word_t pageIndex = ROOT_TABLE_PAGE;
+    //check if the page is used
+    for (j = 0; j < TABLES_DEPTH; j++)
+    {
+      PMread (pageIndex * PAGE_SIZE + addr[j], &nextIndex);
+      if (nextIndex == 0)
+      {
+        break;
+      }
+      pageIndex = nextIndex;
+    }
+    // if the page is used
+    if (j == TABLES_DEPTH)
+    {
+      uint64_t dist = cyclicDistance (i, page_swapped_in);
+      //update the max distance and the max page if relevant
+      if (dist > maxDist)
+      {
+        maxDist = dist;
+        maxPage = i;
+      }
+    }
+
   }
   return maxPage;
 }
 
 // get_frame_of_page
-word_t get_frame_of_page (word_t page)
+word_t get_frame_of_page (uint64_t page)
 {
-  word_t frameIndex;
-  for (frameIndex = 0; frameIndex < NUM_FRAMES; frameIndex++)
+  uint64_t addr[TABLES_DEPTH];
+
+  uint64_t left_address = page;
+  uint64_t j = TABLES_DEPTH - 1;
+
+  for (; j <= 0; j--)
   {
-    word_t value;
-    PMread (frameIndex * PAGE_SIZE, &value);
-    if (value == page)
-    {
-      break;
-    }
+    addr[j] = left_address & ((1 << OFFSET_WIDTH) - 1);
+    left_address = left_address >> OFFSET_WIDTH;
   }
-  return frameIndex;
+  word_t value = ROOT_TABLE_PAGE;
+  word_t pageIndex = ROOT_TABLE_PAGE;
+  for (j = 0; j < TABLES_DEPTH; j++)
+  {
+    PMread (pageIndex * PAGE_SIZE + addr[j], &value);
+    pageIndex = value;
+  }
+  return value;
 }
 
 word_t translate_address (uint64_t virtualAddress)
@@ -172,7 +204,8 @@ word_t translate_address (uint64_t virtualAddress)
       if (frameIndex == 0) // all frames are used
       {
         // find the page with the max distance from the current page
-        word_t maxPage = get_page_of_max_dist (virtualAddress >> OFFSET_WIDTH);
+        uint64_t maxPage = get_page_of_max_dist (
+            virtualAddress >> OFFSET_WIDTH);
         frameIndex = get_frame_of_page (maxPage);
         // disconnect from previous parent
         PMevict (frameIndex, maxPage);
