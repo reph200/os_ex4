@@ -39,7 +39,7 @@ uint64_t cyclicDistance (uint64_t page_swapped_in, uint64_t p)
   return std::min (distance1, distance2);
 }
 
-word_t get_parent_of_frame (word_t root, word_t frameIndex, uint64_t level)
+word_t get_address_of_parent (word_t root, word_t frameIndex, uint64_t level)
 {
   // return if we got to the bottom of the tree
   if (level == TABLES_DEPTH)
@@ -54,24 +54,28 @@ word_t get_parent_of_frame (word_t root, word_t frameIndex, uint64_t level)
     PMread (root * PAGE_SIZE + i, &value);
     if (value == frameIndex)
     {
-      return root;
+      return root* PAGE_SIZE + i;
     }
       // recursively call the next level of the tree for each of the sons of
       // the current root
     else if (value != 0)
     {
-      ret_val = ret_val + get_parent_of_frame (value, frameIndex, level + 1);
-      if (ret_val != 0)
-      { break; }
+      word_t parent_address = get_address_of_parent (value, frameIndex, level +
+      1);
+      if (parent_address != 0)
+      {
+        return parent_address;
+      }
+//      ret_val = ret_val + parent;
     }
   }
-  return ret_val;
+  return 0;
 }
 
 word_t get_empty_frame (word_t root, word_t justCreatedFrame, uint64_t level)
 {
   if (level == TABLES_DEPTH || root == justCreatedFrame)
-  { return 0;}
+  { return 0; }
   if (is_empty_frame (root))
   {
     return root;
@@ -86,7 +90,7 @@ word_t get_empty_frame (word_t root, word_t justCreatedFrame, uint64_t level)
     if (value != 0)
     {
       ret_val =
-          ret_val + get_parent_of_frame (value, justCreatedFrame, level + 1);
+          ret_val + get_empty_frame (value, justCreatedFrame, level + 1);
       if (ret_val != 0)
       { break; }
     }
@@ -108,14 +112,14 @@ word_t get_unused_frame (word_t root,
 
     PMread (root * PAGE_SIZE + i, &value);
 
-      // recursively call the next level of the tree for each of the sons of
-      // the current root
+    // recursively call the next level of the tree for each of the sons of
+    // the current root
     if (value != 0)
     {
-      ret_val = std::max(ret_val,std::max (value, get_unused_frame (value,
+      ret_val = std::max (ret_val, std::max (value, get_unused_frame (value,
 
-                                                              level
-                                                              + 1)));
+                                                                      level
+                                                                      + 1)));
     }
   }
   return ret_val;
@@ -130,12 +134,12 @@ uint64_t get_page_of_max_dist (uint64_t page_swapped_in)
 
   for (uint64_t i = 0; i < NUM_PAGES; i++)
   {
-    uint64_t j = TABLES_DEPTH - 1;
+    uint64_t j = TABLES_DEPTH;
     uint64_t left_address = i;
 
-    for (; j <= 0; j--)
+    for (; j > 0; j--)
     {
-      addr[j] = left_address & ((1 << OFFSET_WIDTH) - 1);
+      addr[j - 1] = left_address & ((1 << OFFSET_WIDTH) - 1);
       left_address = left_address >> OFFSET_WIDTH;
     }
     word_t nextIndex = ROOT_TABLE_PAGE;
@@ -153,7 +157,7 @@ uint64_t get_page_of_max_dist (uint64_t page_swapped_in)
     // if the page is used
     if (j == TABLES_DEPTH)
     {
-      uint64_t dist = cyclicDistance (i, page_swapped_in);
+      uint64_t dist = cyclicDistance (page_swapped_in, i);
       //update the max distance and the max page if relevant
       if (dist > maxDist)
       {
@@ -172,11 +176,11 @@ word_t get_frame_of_page (uint64_t page)
   uint64_t addr[TABLES_DEPTH];
 
   uint64_t left_address = page;
-  uint64_t j = TABLES_DEPTH - 1;
+  uint64_t j = TABLES_DEPTH;
 
-  for (; j <= 0; j--)
+  for (; j > 0; j--)
   {
-    addr[j] = left_address & ((1 << OFFSET_WIDTH) - 1);
+    addr[j - 1] = left_address & ((1 << OFFSET_WIDTH) - 1);
     left_address = left_address >> OFFSET_WIDTH;
   }
   word_t value = ROOT_TABLE_PAGE;
@@ -193,9 +197,9 @@ word_t translate_address (uint64_t virtualAddress)
 {
   uint64_t addr[TABLES_DEPTH + 1];
   uint64_t left_virtual_address = virtualAddress;
-  for (uint64_t i = TABLES_DEPTH; i <= 0; i--)
+  for (uint64_t i = TABLES_DEPTH + 1; i > 0; i--)
   {
-    addr[i] = left_virtual_address & ((1 << OFFSET_WIDTH) - 1);
+    addr[i - 1] = left_virtual_address & ((1 << OFFSET_WIDTH) - 1);
     left_virtual_address = left_virtual_address >> OFFSET_WIDTH;
   }
 
@@ -209,11 +213,11 @@ word_t translate_address (uint64_t virtualAddress)
     if (nextIndex == 0)
     {
       //STAGE 1
-      frameIndex = get_empty_frame (ROOT_TABLE_PAGE,preFrameIndex,0);
+      frameIndex = get_empty_frame (ROOT_TABLE_PAGE, preFrameIndex, 0);
       //STAGE 2
-      if (frameIndex==0)
+      if (frameIndex == 0)
       {
-        frameIndex = get_unused_frame (ROOT_TABLE_PAGE,0)+1;
+        frameIndex = get_unused_frame (ROOT_TABLE_PAGE, 0) + 1;
       }
       //STAGE 3 -  all frames are used
       if (frameIndex == NUM_FRAMES)
@@ -223,13 +227,15 @@ word_t translate_address (uint64_t virtualAddress)
             virtualAddress >> OFFSET_WIDTH);
         frameIndex = get_frame_of_page (maxPage);
         // disconnect from previous parent
+        PMwrite (get_address_of_parent (ROOT_TABLE_PAGE, frameIndex, 0)
+                 , 0);
         PMevict (frameIndex, maxPage);
-        PMwrite (get_parent_of_frame (ROOT_TABLE_PAGE, frameIndex, 0), 0);
       }
       //ALWAYS REACH HERE! creates new table
       clear (frameIndex);
       PMwrite (pageIndex * PAGE_SIZE + addr[i], frameIndex);
       preFrameIndex = frameIndex;
+      nextIndex = frameIndex;
     }
 
     pageIndex = nextIndex;
