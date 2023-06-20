@@ -6,7 +6,9 @@
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
-
+#define min(a,b) ((a)<(b)?(a):(b))
+#define max(a,b) ((a)>(b)?(a):(b))
+#define abs(a) ((a)<(0)?(-a):(a))
 #define ROOT_TABLE_PAGE 0
 
 void clear (uint64_t frameIndex)
@@ -33,10 +35,10 @@ bool is_empty_frame (uint64_t frameIndex)
 
 uint64_t cyclicDistance (uint64_t page_swapped_in, uint64_t p)
 {
-  uint64_t distance1 = NUM_PAGES - std::abs (static_cast<int64_t>
+  uint64_t distance1 = NUM_PAGES - abs (static_cast<int64_t>
                                              (page_swapped_in - p));
-  uint64_t distance2 = std::abs (static_cast<int64_t>(page_swapped_in - p));
-  return std::min (distance1, distance2);
+  uint64_t distance2 = abs (static_cast<int64_t>(page_swapped_in - p));
+  return min (distance1, distance2);
 }
 
 word_t get_address_of_parent (word_t root, word_t frameIndex, uint64_t level)
@@ -116,10 +118,7 @@ word_t get_unused_frame (word_t root,
     // the current root
     if (value != 0)
     {
-      ret_val = std::max (ret_val, std::max (value, get_unused_frame (value,
-
-                                                                      level
-                                                                      + 1)));
+      ret_val = max(ret_val, max(value, get_unused_frame (value,level + 1)));
     }
   }
   return ret_val;
