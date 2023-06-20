@@ -68,15 +68,41 @@ word_t get_parent_of_frame (word_t root, word_t frameIndex, uint64_t level)
   return ret_val;
 }
 
-word_t get_unused_or_empty_frame (word_t justCreatedFrame)
+word_t get_unused_or_empty_frame (word_t root,word_t justCreatedFrame,
+                                  uint64_t level)
 {
-  word_t frameIndex = 0;
+  // return if we got to the bottom of the tree
+  if (level == TABLES_DEPTH)
+  { return 0; }
 
-  ...
-  if (frameIndex != justCreatedFrame && is_empty_frame (frameIndex))
+  word_t ret_val = 0;
+  word_t value;
+  for (uint64_t i = 0; i < PAGE_SIZE; i++)
   {
-    return frameIndex;
+
+    PMread (root * PAGE_SIZE + i, &value);
+    // found an empty frame
+    if (value != justCreatedFrame && is_empty_frame (value))
+    {
+      // disconnect from parent
+      PMwrite (get_parent_of_frame (ROOT_TABLE_PAGE, value, 0), 0);
+      return value;
+    }
+      // recursively call the next level of the tree for each of the sons of
+      // the current root
+    else if (value != 0)
+    {
+      ret_val = std::min(ret_val, get_unused_or_empty_frame (value,
+                                                     justCreatedFrame, level
+                                                     + 1));
+      if (ret_val != 0)
+      { break; }
+    }
   }
+  return ret_val;
+}
+  ...
+
   ...
 
 
@@ -91,13 +117,13 @@ word_t get_unused_or_empty_frame (word_t justCreatedFrame)
 }
 
 // get_page_of_max_dist
-word_t get_page_of_max_dist (uint64_t virtualAddress)
+word_t get_page_of_max_dist (uint64_t page_swapped)
 {
   word_t maxPage = 0;
   word_t maxDist = 0;
   for (word_t i = 0; i < NUM_PAGES; i++)
   {
-    word_t dist = cyclicDistance (i, virtualAddress);
+    word_t dist = cyclicDistance (virtualAddress, i);
     if (dist > maxDist)
     {
       maxDist = dist;
