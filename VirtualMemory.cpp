@@ -213,8 +213,12 @@ word_t translate_address (uint64_t virtualAddress)
     {
       //STAGE 1
       frameIndex = get_empty_frame (ROOT_TABLE_PAGE, preFrameIndex, 0);
+      if (frameIndex != 0)
+      {
+        PMwrite (get_address_of_parent (ROOT_TABLE_PAGE, frameIndex, 0), 0);
+      }
       //STAGE 2
-      if (frameIndex == 0)
+      else
       {
         frameIndex = get_unused_frame (ROOT_TABLE_PAGE, 0) + 1;
       }
@@ -226,8 +230,7 @@ word_t translate_address (uint64_t virtualAddress)
             virtualAddress >> OFFSET_WIDTH);
         frameIndex = get_frame_of_page (maxPage);
         // disconnect from previous parent
-        PMwrite (get_address_of_parent (ROOT_TABLE_PAGE, frameIndex, 0)
-                 , 0);
+        PMwrite (get_address_of_parent (ROOT_TABLE_PAGE, frameIndex, 0), 0);
         PMevict (frameIndex, maxPage);
       }
       //ALWAYS REACH HERE! creates new table
@@ -236,7 +239,10 @@ word_t translate_address (uint64_t virtualAddress)
       preFrameIndex = frameIndex;
       nextIndex = frameIndex;
     }
-
+    else
+    {
+        preFrameIndex = nextIndex;
+    }
     pageIndex = nextIndex;
   }
   PMrestore (pageIndex, virtualAddress >> OFFSET_WIDTH);
