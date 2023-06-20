@@ -9,7 +9,6 @@
 
 #define ROOT_TABLE_PAGE 0
 
-
 void clear (uint64_t frameIndex)
 {
   for (uint64_t i = 0; i < PAGE_SIZE; i++)
@@ -35,28 +34,38 @@ bool is_empty_frame (uint64_t frameIndex)
 uint64_t cyclicDistance (uint64_t page_swapped_in, uint64_t p)
 {
   uint64_t distance1 = NUM_PAGES - std::abs (static_cast<int64_t>
-      (page_swapped_in - p));
+                                             (page_swapped_in - p));
   uint64_t distance2 = std::abs (static_cast<int64_t>(page_swapped_in - p));
   return std::min (distance1, distance2);
 }
 
-word_t get_parent_of_frame (word_t root ,word_t frameIndex)
+word_t get_parent_of_frame (word_t root, word_t frameIndex, uint64_t level)
 {
- // dfs on the tree and find the parent of the frame
+  // return if we got to the bottom of the tree
+  if (level == TABLES_DEPTH)
+  { return 0; }
+
+  word_t ret_val = 0;
   word_t value;
-  for(uint64_t i = 0; i < PAGE_SIZE; i++)
+  // check if it is the father of the desired frame
+  for (uint64_t i = 0; i < PAGE_SIZE; i++)
   {
 
-    PMread (root * PAGE_SIZE+i, &value);
+    PMread (root * PAGE_SIZE + i, &value);
     if (value == frameIndex)
     {
       return root;
     }
-    else
+      // recursively call the next level of the tree for each of the sons of
+      // the current root
+    else if (value != 0)
     {
-      return get_parent_of_frame (value, frameIndex);
+      ret_val = ret_val + get_parent_of_frame (value, frameIndex, level + 1);
+      if (ret_val != 0)
+      { break; }
     }
   }
+  return ret_val;
 }
 
 word_t get_unused_or_empty_frame (word_t justCreatedFrame)
@@ -141,7 +150,7 @@ word_t translate_address (uint64_t virtualAddress)
         frameIndex = get_frame_of_page (maxPage);
         // disconnect from previous parent
         PMevict (frameIndex, maxPage);
-        PMwrite (get_parent_of_frame (frameIndex), 0);
+        PMwrite (get_parent_of_frame (ROOT_TABLE_PAGE, frameIndex, 0), 0);
       }
       clear (frameIndex);
       PMwrite (pageIndex * PAGE_SIZE + addr[i], frameIndex);
